@@ -1,7 +1,7 @@
 #############################################################################################################################
 # Author: Muhammad Iqbal                                                                                                    #
 # AppName: Minion
-# Version: 1.2
+# Version: 1.3
 # Description: Minion is a BOT used to unlock Active Directory Accounts and also create Entry in Service Now for tracking   #
 #############################################################################################################################
 
