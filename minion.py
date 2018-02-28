@@ -7,6 +7,7 @@
 
 #pylint: disable= C0103, W0611, W0612, W0613, C0111, W0621, C0326, C0301, C0303, C0304, C0412
 import datetime
+import random
 import logging
 import os
 import ConfigParser
@@ -43,12 +44,12 @@ def minionReply():
     if 'registered' not in session:
         session['registered'] = str(checkRegistration())
     ### Make entry in the logs
-    chatlog(0, request.form['From'] + " ---> " + request.form['Body'], userLog)
+    #chatlog(0, request.form['From'] + " ---> " + request.form['Body'], userLog)
 
     ### Create Twilio response object to be able to send a reply back
     resp = MessagingResponse()
     replyText = getReply(request.form['Body'])
-    chatlog(0, "Minion ---> " + replyText, userLog)
+    #chatlog(0, "Minion ---> " + replyText, userLog)
     resp.message(replyText)
     return str(resp)
 
@@ -59,9 +60,11 @@ def getReply(msg):
     answer = ""
     reg = session['registered']
     ### Standard Messages
+    GREETINGS_KEYWORD = ("hi", "hello", "hey", "minion")
+    GREETINGS_RESPONSES = ['Hello','Hi','Hey']
     general = "can I have your PIN please to start off.\n"
     note = "NOTE: If you don't have PIN please check in ServiceNow if you are registered for this service"
-    greetings = "Hello and Welcome to Self Service for Resets.\n\nMy name is Minion "
+    greetings = " and Welcome to Self Service for Resets.\n\nMy name is Minion "
     missedcom = "I think I missed something. Lets start from beginning.\n"
     srvprovider = "Thank you for your verification. How can I help? I can assist you with the following\n"
     services = "1. Password Reset\n2. Password Unlock"
@@ -79,13 +82,14 @@ def getReply(msg):
         answer = notRegistered
         
     
-    if session['verified'] == 'false' and ("Hi".lower() in msg or "Hello".lower() in msg or "Hey".lower() in msg or "Minion".lower() in msg) and session['askPin'] == 'false':
-        answer = greetings + general + note
+    if session['verified'] == 'false' and msg in GREETINGS_KEYWORD and session['askPin'] == 'false':
+        answer = random.choice(GREETINGS_RESPONSES) + greetings + general + note
         session['askPin'] = 'true'
         
     if session['verified'] == 'false' and str(session['pin']) in msg and session['registered'] == 'true':
         session['verified'] = 'true'
         session['askPin'] = 'true'
+        msg = "[USER ENTERED PIN]"
         answer = srvprovider + services
        
     if session['registered'] == 'NA':
@@ -111,16 +115,31 @@ def getReply(msg):
             answer = missedcom + general + note
         elif session['verified'] == 'true':
             answer = "Sorry I didn't understand what you want me to do. Please choose from the below\n" + services
+    chatlog(0, "User ---> " + msg, userLog)
+    chatlog(0, "User ---> " + msg, mainLog)
     chatlog(0, "Minion ---> " + answer, userLog)
     chatlog(0, "Minion ---> " + answer, mainLog)
     return answer
+
+### Read Log File
+def read_log_file():
+    content = ""
+    with open(session['logFile']) as f:
+        for line in f.readlines():
+            content += line
+    print content
+    return content
+### Clean up the user logs
+def user_log_cleanup():
+    chatlog(0, "Inside user_log_cleanup function to delete the logs", mainLog)
+    return "done"
 ### Function to Perform Action what user is requesting
 def srvOption(option):
     cart = config.get('SNOW_DEV', 'cart')
     user = config.get('SNOW_DEV', 'user')
     pwd = config.get('SNOW_DEV','pwd')
     # Data that needs to be sent for adding items to cart
-    data = {"sysparm_quantity":"1","variables":{"u_requested_for":str(session['user_sys_id']),"bot":"true"}}
+    data = {"sysparm_quantity":"1","variables":{"u_requested_for":str(session['user_sys_id']),"bot":"true", "work_notes":read_log_file()}}
     # Set Headers
     headers = {"Accept":"application/json"}
     reply = "Your Request is been processed your ticket number is "
@@ -238,6 +257,8 @@ def mylogs(name):
     handler.setFormatter(formatter)
     logger.addHandler(handler)
     logger.setLevel(logging.INFO)
+    if name != 'minion':
+        session['logFile'] = logDir + fileName
     return logger
 
 ### Function to take care of logs
