@@ -1,7 +1,7 @@
 #############################################################################################################################
 # Author: Muhammad Iqbal                                                                                                    #
 # AppName: Minion
-# Version: 1.1
+# Version: 1.2
 # Description: Minion is a BOT used to unlock Active Directory Accounts and also create Entry in Service Now for tracking   #
 #############################################################################################################################
 
@@ -63,7 +63,7 @@ def getReply(msg):
     note = "NOTE: If you don't have PIN please check in ServiceNow if you are registered for this service"
     greetings = "Hello and Welcome to Self Service for Resets.\n\nMy name is Minion "
     missedcom = "I think I missed something. Lets start from beginning.\n"
-    srvprovider = "Thank you for your verification. How can I help? I can assist you with the following"
+    srvprovider = "Thank you for your verification. How can I help? I can assist you with the following\n"
     services = "1. Password Reset\n2. Password Unlock"
     pin = "Can you provide me with your PIN so that I can Authenticate you"
     notmatchPIN = "\nSorry you have entered an invalid PIN. \nPlease type just your PIN again"
@@ -95,17 +95,22 @@ def getReply(msg):
             chatlog(0, "User asked to Reset Password", userLog)
             chatlog(0, "User asked to Reset Password", mainLog)
             answer ="Password Reset capability coming soon"
-            answer = srvOption("reset")
+            answer = srvOption("password_reset")
 	if msg == "2" or "unlock".lower() in msg or msg == "2. Password Unlock".lower():
             answer = "Password Unlock capability coming soon"
-            answer = srvOption("unlock")
+            answer = srvOption("password_unlock")
 
-        if msg not in "1. Password Reset".lower() or msg not in "2. Password Unlock".lower():
-            answer = "Sorry I didn't understand what you want me to do. Please choose from the below\n" + services
+        if msg == 'y' or msg == 'yes':
+            answer = "For sure"
+        elif msg == 'n' or msg == 'no':
+            answer = "You have yourself a good rest of the day"
     
     if answer == "":
-        session['askPin'] = 'true'
-        answer = greetings + general + note
+        if session['verified'] == 'false':
+            session['askPin'] = 'true'
+            answer = missedcom + general + note
+        elif session['verified'] == 'true':
+            answer = "Sorry I didn't understand what you want me to do. Please choose from the below\n" + services
     chatlog(0, "Minion ---> " + answer, userLog)
     chatlog(0, "Minion ---> " + answer, mainLog)
     return answer
@@ -118,52 +123,32 @@ def srvOption(option):
     data = {"sysparm_quantity":"1","variables":{"u_requested_for":str(session['user_sys_id']),"bot":"true"}}
     # Set Headers
     headers = {"Accept":"application/json"}
-    reply = ""
-    if option == 'reset':
-        chatlog(0,"User asking for Password Reset", userLog)
-        # Do HTTPS request
-        try:
-            cart = cart + config.get('SNOW_DEV','password_reset') + '/add_to_cart'
-            response = requests.post(str(cart),auth=(user, pwd), headers=headers, data=str(data))
-            response.raise_for_status()
-        except requests.exceptions.ConnectionError as err:
-            print err
-            chatlog(1, err, mainLog)
-            chatlog(1, err, userLog)
-        except requests.exceptions.HTTPError as err:
-            print err
-            chatlog(1, err, mainLog)
-            chatlog(1, err, userLog)
+    reply = "Your Request is been processed your ticket number is "
+    reply2 = "\n "
+    chatlog(0,"User asking for " + option , userLog)
+
+    # Do HTTPS request
+    try:
+        cart = cart + config.get('SNOW_DEV',option) + '/add_to_cart'
+        response = requests.post(str(cart),auth=(user, pwd), headers=headers, data=str(data))
+        response.raise_for_status()
+    except requests.exceptions.ConnectionError as err:
+        print err
+        chatlog(1, err, mainLog)
+        chatlog(1, err, userLog)
+    except requests.exceptions.HTTPError as err:
+        print err
+        chatlog(1, err, mainLog)
+        chatlog(1, err, userLog)
         # Check for HTTP codes other than 200
-        if response.status_code != 200:
-            chatlog(1, 'User Asked for Reset\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), mainLog)
-            chatlog(1, 'User Asked for Reset\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), userLog)
-            return 'Something Went wrong in adding items to cart!!!'
-        reqNumber = submitCart()
-        reply = "Order is put through your ticket number is " + reqNumber
-    if option == 'unlock':
-        chatlog(0,"User asking for Password Unlock", userLog)
-        # Do HTTPS request
-        try:
-            cart = cart + config.get('SNOW_DEV','password_unlock') + '/add_to_cart'
-            response = requests.post(str(cart),auth=(user, pwd), headers=headers, data=str(data))
-            response.raise_for_status()
-        except requests.exceptions.ConnectionError as err:
-            print err
-            chatlog(1, err, mainLog)
-            chatlog(1, err, userLog)
-        except requests.exceptions.HTTPError as err:
-            print err
-            chatlog(1, err, mainLog)
-            chatlog(1, err, userLog)
-        # Check for HTTP codes other than 200
-        if response.status_code != 200:
-            chatlog(1, 'User Asked for Reset\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), mainLog)
-            chatlog(1, 'User Asked for Reset\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), userLog)
-            return 'Something Went wrong in adding items to cart!!!'
-        reqNumber = submitCart()
-        reply = "Order is put through your ticket number is " + reqNumber
+    if response.status_code != 200:
+        chatlog(1, 'User Asked for '+ option + '\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), mainLog)
+        chatlog(1, 'User Asked for '+ option + '\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), userLog)
+        reply =  'Something Went wrong in adding items to cart!!!'
+    #reqNumber = submitCart()
+    reply = reply + submitCart() + reply2
     return reply
+
 ### Function to submit cart
 def submitCart():
     chatlog(0,"Submitting Cart", userLog)
