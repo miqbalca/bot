@@ -1,6 +1,7 @@
 #############################################################################################################################
 # Author: Muhammad Iqbal                                                                                                    #
-# AppName: Minion                                                                                                           #
+# AppName: Minion
+# Version: 1.1
 # Description: Minion is a BOT used to unlock Active Directory Accounts and also create Entry in Service Now for tracking   #
 #############################################################################################################################
 
@@ -60,9 +61,10 @@ def getReply(msg):
     ### Standard Messages
     general = "can I have your PIN please to start off.\n"
     note = "NOTE: If you don't have PIN please check in ServiceNow if you are registered for this service"
-    greetings = "Hello and Welcome to CIBC Self Service for Resets.\n\nMy name is Minion "
+    greetings = "Hello and Welcome to Self Service for Resets.\n\nMy name is Minion "
     missedcom = "I think I missed something. Lets start from beginning.\n"
-    srvprovider = "Thank you for your verification. How can I help? I can assist you with the following\n1. Password Reset\n2. Password Unlock"
+    srvprovider = "Thank you for your verification. How can I help? I can assist you with the following"
+    services = "1. Password Reset\n2. Password Unlock"
     pin = "Can you provide me with your PIN so that I can Authenticate you"
     notmatchPIN = "\nSorry you have entered an invalid PIN. \nPlease type just your PIN again"
     notRegistered = "It seems like your not Registered for this service. Please enable this service in ServiceNOW for yourself."
@@ -84,7 +86,7 @@ def getReply(msg):
     if session['verified'] == 'false' and str(session['pin']) in msg and session['registered'] == 'true':
         session['verified'] = 'true'
         session['askPin'] = 'true'
-        answer = srvprovider
+        answer = srvprovider + services
        
     if session['registered'] == 'NA':
         answer = servicenowERROR
@@ -96,8 +98,10 @@ def getReply(msg):
             answer = srvOption("reset")
 	if msg == "2" or "unlock".lower() in msg or msg == "2. Password Unlock".lower():
             answer = "Password Unlock capability coming soon"
+            answer = srvOption("unlock")
 
-    
+        if msg not in "1. Password Reset".lower() or msg not in "2. Password Unlock".lower():
+            answer = "Sorry I didn't understand what you want me to do. Please choose from the below\n" + services
     
     if answer == "":
         session['askPin'] = 'true'
@@ -110,12 +114,13 @@ def srvOption(option):
     cart = config.get('SNOW_DEV', 'cart')
     user = config.get('SNOW_DEV', 'user')
     pwd = config.get('SNOW_DEV','pwd')
+    # Data that needs to be sent for adding items to cart
+    data = {"sysparm_quantity":"1","variables":{"u_requested_for":str(session['user_sys_id']),"bot":"true"}}
     # Set Headers
     headers = {"Accept":"application/json"}
     reply = ""
     if option == 'reset':
         chatlog(0,"User asking for Password Reset", userLog)
-        data = {"sysparm_quantity":"1","variables":{"u_requested_for":str(session['user_sys_id']),"bot":"true"}}
         # Do HTTPS request
         try:
             cart = cart + config.get('SNOW_DEV','password_reset') + '/add_to_cart'
@@ -138,9 +143,27 @@ def srvOption(option):
         reply = "Order is put through your ticket number is " + reqNumber
     if option == 'unlock':
         chatlog(0,"User asking for Password Unlock", userLog)
+        # Do HTTPS request
+        try:
+            cart = cart + config.get('SNOW_DEV','password_unlock') + '/add_to_cart'
+            response = requests.post(str(cart),auth=(user, pwd), headers=headers, data=str(data))
+            response.raise_for_status()
+        except requests.exceptions.ConnectionError as err:
+            print err
+            chatlog(1, err, mainLog)
+            chatlog(1, err, userLog)
+        except requests.exceptions.HTTPError as err:
+            print err
+            chatlog(1, err, mainLog)
+            chatlog(1, err, userLog)
+        # Check for HTTP codes other than 200
+        if response.status_code != 200:
+            chatlog(1, 'User Asked for Reset\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), mainLog)
+            chatlog(1, 'User Asked for Reset\nStatus: ' + str(response.status_code) + '\nHeaders: ' + response.headers + '\nError Response: ' + response.json(), userLog)
+            return 'Something Went wrong in adding items to cart!!!'
+        reqNumber = submitCart()
+        reply = "Order is put through your ticket number is " + reqNumber
     return reply
-
-
 ### Function to submit cart
 def submitCart():
     chatlog(0,"Submitting Cart", userLog)
