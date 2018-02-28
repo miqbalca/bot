@@ -1,0 +1,16 @@
+#Logs
+############
+logs/*.log
+
+#Practice Files
+#############
+activeDirectory.py
+ad.py
+send_sms.py
+serviceNow.py
+serviceNowResult.txt
+
+#Config files
+###############
+config.ini
+
