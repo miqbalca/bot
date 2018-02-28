@@ -22,7 +22,7 @@ minion.secret_key = os.urandom(24)
 
 ### Accessing Configuration file
 config = ConfigParser.ConfigParser()
-config.read('C:\users\iqbalmu-adm\Desktop\MI_Scripts\config.ini')
+config.read('config.ini')
 
 # ### Start Session before any processing of request
 # @minion.before_request
